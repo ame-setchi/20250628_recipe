@@ -50,8 +50,15 @@ export async function POST(request: NextRequest) {
     // クックパッドURLからレシピIDを抽出
     const recipeId = extractRecipeId(url)
     if (!recipeId) {
+      console.error('Failed to extract recipe ID from URL:', url)
       return NextResponse.json(
-        { error: 'Invalid Cookpad URL. Could not extract recipe ID.' },
+        { 
+          error: 'Invalid Cookpad URL. Could not extract recipe ID.',
+          debug: {
+            url: url,
+            pathname: new URL(url).pathname
+          }
+        },
         { status: 400 }
       )
     }
@@ -79,11 +86,43 @@ function extractRecipeId(url: string): string | null {
     const urlObj = new URL(url)
     
     // 例: https://cookpad.com/recipe/1234567
+    // 例: https://cookpad.com/recipe/1234567-レシピ名
+    // 例: https://cookpad.com/recipe/1234567_レシピ名
+    // 例: https://cookpad.com/jp/recipes/1234567
     const pathParts = urlObj.pathname.split('/')
+    
+    // /jp/recipes/ の形式に対応
+    const jpRecipesIndex = pathParts.findIndex((part, index) => 
+      part === 'jp' && pathParts[index + 1] === 'recipes'
+    )
+    
+    if (jpRecipesIndex !== -1 && pathParts[jpRecipesIndex + 2]) {
+      const recipePart = pathParts[jpRecipesIndex + 2]
+      
+      // 数字のみのIDを抽出（ハイフンやアンダースコアの前まで）
+      const idMatch = recipePart.match(/^(\d+)/)
+      if (idMatch) {
+        return idMatch[1]
+      }
+      
+      // 数字以外が含まれている場合は、そのまま返す
+      return recipePart
+    }
+    
+    // 従来の /recipe/ 形式にも対応
     const recipeIndex = pathParts.findIndex(part => part === 'recipe')
     
     if (recipeIndex !== -1 && pathParts[recipeIndex + 1]) {
-      return pathParts[recipeIndex + 1]
+      const recipePart = pathParts[recipeIndex + 1]
+      
+      // 数字のみのIDを抽出（ハイフンやアンダースコアの前まで）
+      const idMatch = recipePart.match(/^(\d+)/)
+      if (idMatch) {
+        return idMatch[1]
+      }
+      
+      // 数字以外が含まれている場合は、そのまま返す
+      return recipePart
     }
     
     return null
@@ -142,7 +181,8 @@ function transformCookpadData(apiData: CookpadApiResponse) {
 // HTMLスクレイピング（フォールバック）
 async function scrapeFromHTML(recipeId: string) {
   try {
-    const url = `https://cookpad.com/recipe/${recipeId}`
+    // 実際のクックパッドURL形式を使用
+    const url = `https://cookpad.com/jp/recipes/${recipeId}`
     
     const response = await fetch(url, {
       headers: {
@@ -174,7 +214,7 @@ async function scrapeFromHTML(recipeId: string) {
       servings: 2,
       difficulty: 'medium' as const,
       image_url: null,
-      source_url: `https://cookpad.com/recipe/${recipeId}`,
+      source_url: `https://cookpad.com/jp/recipes/${recipeId}`,
       tags: []
     }
   }
@@ -190,28 +230,40 @@ function parseHTMLRecipe(html: string, url: string) {
   const descriptionMatch = html.match(/<meta[^>]*name="description"[^>]*content="([^"]*)"/i)
   const description = descriptionMatch ? descriptionMatch[1] : ''
   
-  // 材料を抽出（簡易版）
+  // 材料を抽出（クックパッドの実際のHTML構造に合わせて）
   const ingredients: string[] = []
-  const ingredientMatches = html.match(/<span[^>]*class="[^"]*ingredient[^"]*"[^>]*>([^<]+)<\/span>/gi)
-  if (ingredientMatches) {
-    ingredientMatches.forEach(match => {
-      const text = match.replace(/<[^>]*>/g, '').trim()
-      if (text && text.length > 1) {
-        ingredients.push(text)
-      }
-    })
+  
+  // 材料セクションを探す
+  const materialsMatch = html.match(/<h2[^>]*>材料<\/h2>[\s\S]*?<ul[^>]*>([\s\S]*?)<\/ul>/i)
+  if (materialsMatch) {
+    const materialsHtml = materialsMatch[1]
+    const liMatches = materialsHtml.match(/<li[^>]*>([^<]+)<\/li>/gi)
+    if (liMatches) {
+      liMatches.forEach(match => {
+        const text = match.replace(/<[^>]*>/g, '').trim()
+        if (text && text.length > 1) {
+          ingredients.push(text)
+        }
+      })
+    }
   }
   
-  // 手順を抽出（簡易版）
+  // 手順を抽出（クックパッドの実際のHTML構造に合わせて）
   const instructions: string[] = []
-  const instructionMatches = html.match(/<div[^>]*class="[^"]*step[^"]*"[^>]*>([^<]+)<\/div>/gi)
-  if (instructionMatches) {
-    instructionMatches.forEach(match => {
-      const text = match.replace(/<[^>]*>/g, '').trim()
-      if (text && text.length > 1) {
-        instructions.push(text)
-      }
-    })
+  
+  // 作り方セクションを探す
+  const stepsMatch = html.match(/<h2[^>]*>作り方<\/h2>[\s\S]*?<ol[^>]*>([\s\S]*?)<\/ol>/i)
+  if (stepsMatch) {
+    const stepsHtml = stepsMatch[1]
+    const liMatches = stepsHtml.match(/<li[^>]*>([^<]+)<\/li>/gi)
+    if (liMatches) {
+      liMatches.forEach(match => {
+        const text = match.replace(/<[^>]*>/g, '').trim()
+        if (text && text.length > 1) {
+          instructions.push(text)
+        }
+      })
+    }
   }
   
   // 調理時間を抽出
@@ -223,7 +275,7 @@ function parseHTMLRecipe(html: string, url: string) {
   
   // 人数を抽出
   let servings = 2
-  const servingsMatch = html.match(/(\d+)人前/)
+  const servingsMatch = html.match(/(\d+)人分/)
   if (servingsMatch) {
     servings = parseInt(servingsMatch[1])
   }
