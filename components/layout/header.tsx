@@ -48,9 +48,10 @@ export function Header() {
             </Link>
             <Link 
               href="/favorites" 
-              className="text-gray-600 hover:text-orange-600 font-medium transition-colors duration-200 relative group"
+              className="text-gray-600 hover:text-orange-600 font-medium transition-colors duration-200 relative group flex items-center space-x-1"
             >
-              お気に入り
+              <Heart className="h-4 w-4" />
+              <span>お気に入り</span>
               <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-orange-500 group-hover:w-full transition-all duration-300"></span>
             </Link>
           </nav>
@@ -112,10 +113,11 @@ export function Header() {
               </Link>
               <Link 
                 href="/favorites" 
-                className="text-gray-600 hover:text-orange-600 font-medium py-2 px-3 rounded-lg hover:bg-orange-50 transition-colors duration-200"
+                className="text-gray-600 hover:text-orange-600 font-medium py-2 px-3 rounded-lg hover:bg-orange-50 transition-colors duration-200 flex items-center space-x-2"
                 onClick={() => setIsMobileMenuOpen(false)}
               >
-                お気に入り
+                <Heart className="h-4 w-4" />
+                <span>お気に入り</span>
               </Link>
             </nav>
             <div className="flex items-center space-x-3 pt-4">
