@@ -245,7 +245,8 @@ function parseHTMLRecipe(html: string, url: string) {
   
   // HTMLタグとCSSを除去する関数
   const cleanText = (text: string): string => {
-    return text
+    // まず、HTMLタグを完全に除去
+    let cleaned = text
       .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '') // scriptタグを除去
       .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '') // styleタグを除去
       .replace(/<link[^>]*>/gi, '') // linkタグを除去
@@ -254,8 +255,10 @@ function parseHTMLRecipe(html: string, url: string) {
       .replace(/<br[^>]*>/gi, ' ') // brタグを空白に変換
       .replace(/<hr[^>]*>/gi, ' ') // hrタグを空白に変換
       .replace(/<[^>]*>/g, '') // 残りのHTMLタグを除去
-      .replace(/\s+/g, ' ') // 複数の空白を単一の空白に
-      .replace(/&nbsp;/g, ' ') // HTMLエンティティを変換
+    
+    // HTMLエンティティを変換
+    cleaned = cleaned
+      .replace(/&nbsp;/g, ' ')
       .replace(/&amp;/g, '&')
       .replace(/&lt;/g, '<')
       .replace(/&gt;/g, '>')
@@ -264,41 +267,28 @@ function parseHTMLRecipe(html: string, url: string) {
       .replace(/&copy;/g, '©')
       .replace(/&reg;/g, '®')
       .replace(/&trade;/g, '™')
-      // HTML属性を除去（より包括的に）
-      .replace(/[a-zA-Z-]+="[^"]*"/gi, '') // 任意の属性="値"を除去
-      .replace(/[a-zA-Z-]+='[^']*'/gi, '') // 任意の属性='値'を除去
-      .replace(/[a-zA-Z-]+=[^\s>]+/gi, '') // 任意の属性=値（クォートなし）を除去
-      .replace(/media="[^"]*"/gi, '') // media属性を除去
-      .replace(/data-[^=]*="[^"]*"/gi, '') // data属性を除去
-      .replace(/rel="[^"]*"/gi, '') // rel属性を除去
-      .replace(/href="[^"]*"/gi, '') // href属性を除去
-      .replace(/src="[^"]*"/gi, '') // src属性を除去
-      .replace(/class="[^"]*"/gi, '') // class属性を除去
-      .replace(/id="[^"]*"/gi, '') // id属性を除去
-      .replace(/style="[^"]*"/gi, '') // style属性を除去
-      .replace(/type="[^"]*"/gi, '') // type属性を除去
-      .replace(/name="[^"]*"/gi, '') // name属性を除去
-      .replace(/value="[^"]*"/gi, '') // value属性を除去
-      .replace(/content="[^"]*"/gi, '') // content属性を除去
-      .replace(/property="[^"]*"/gi, '') // property属性を除去
-      .replace(/charset="[^"]*"/gi, '') // charset属性を除去
-      .replace(/http-equiv="[^"]*"/gi, '') // http-equiv属性を除去
-      .replace(/sizes="[^"]*"/gi, '') // sizes属性を除去
-      .replace(/width="[^"]*"/gi, '') // width属性を除去
-      .replace(/height="[^"]*"/gi, '') // height属性を除去
-      .replace(/alt="[^"]*"/gi, '') // alt属性を除去
-      .replace(/title="[^"]*"/gi, '') // title属性を除去
-      .replace(/target="[^"]*"/gi, '') // target属性を除去
-      .replace(/>\s*>/g, '') // 自己終了タグの残骸を除去
-      .replace(/\s*\/\s*>/g, '') // 自己終了タグの残骸を除去
-      .replace(/\{[^}]*\}/g, '') // CSSブロックを除去
-      .replace(/@[^{]*\{[^}]*\}/g, '') // CSSルールを除去
-      .replace(/\d+"\s*\/?>/g, '') // 数字+" /> パターンを除去
-      .replace(/\d+"\s*>/g, '') // 数字+" > パターンを除去
-      .replace(/"[^"]*"\s*\/?>/g, '') // "任意の文字列" /> パターンを除去
-      .replace(/"[^"]*"\s*>/g, '') // "任意の文字列" > パターンを除去
-      .replace(/\s+/g, ' ') // 再度複数の空白を単一の空白に
-      .trim()
+    
+    // 複数の空白を単一の空白に
+    cleaned = cleaned.replace(/\s+/g, ' ')
+    
+    // 残っている可能性のあるHTML属性の残骸を除去
+    cleaned = cleaned
+      .replace(/[a-zA-Z-]+="[^"]*"/gi, '') // 属性="値"
+      .replace(/[a-zA-Z-]+='[^']*'/gi, '') // 属性='値'
+      .replace(/[a-zA-Z-]+=[^\s>]+/gi, '') // 属性=値（クォートなし）
+      .replace(/>\s*>/g, '') // 自己終了タグの残骸
+      .replace(/\s*\/\s*>/g, '') // 自己終了タグの残骸
+      .replace(/\d+"\s*\/?>/g, '') // 数字+" />
+      .replace(/\d+"\s*>/g, '') // 数字+" >
+      .replace(/"[^"]*"\s*\/?>/g, '') // "文字列" />
+      .replace(/"[^"]*"\s*>/g, '') // "文字列" >
+      .replace(/\{[^}]*\}/g, '') // CSSブロック
+      .replace(/@[^{]*\{[^}]*\}/g, '') // CSSルール
+    
+    // 再度空白を正規化
+    cleaned = cleaned.replace(/\s+/g, ' ').trim()
+    
+    return cleaned
   }
   
   // テキストの品質チェック関数
@@ -343,10 +333,16 @@ function parseHTMLRecipe(html: string, url: string) {
     console.log('Found materials section with ul')
     const liMatches = materialsSection[1].match(/<li[^>]*>([\s\S]*?)<\/li>/gi)
     if (liMatches) {
-      liMatches.forEach(match => {
+      console.log('Found li matches:', liMatches.length)
+      liMatches.forEach((match, index) => {
+        console.log(`Processing li ${index + 1}:`, match.substring(0, 100))
         const text = cleanText(match)
+        console.log(`Cleaned text ${index + 1}:`, text)
         if (isValidText(text)) {
           ingredients.push(text)
+          console.log(`Added ingredient:`, text)
+        } else {
+          console.log(`Rejected ingredient:`, text)
         }
       })
     }
@@ -439,10 +435,16 @@ function parseHTMLRecipe(html: string, url: string) {
     console.log('Found steps section with ol')
     const liMatches = stepsSection[1].match(/<li[^>]*>([\s\S]*?)<\/li>/gi)
     if (liMatches) {
-      liMatches.forEach(match => {
+      console.log('Found steps li matches:', liMatches.length)
+      liMatches.forEach((match, index) => {
+        console.log(`Processing step li ${index + 1}:`, match.substring(0, 100))
         const text = cleanText(match)
+        console.log(`Cleaned step text ${index + 1}:`, text)
         if (isValidText(text)) {
           instructions.push(text)
+          console.log(`Added instruction:`, text)
+        } else {
+          console.log(`Rejected instruction:`, text)
         }
       })
     }
