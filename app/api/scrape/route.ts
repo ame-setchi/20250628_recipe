@@ -184,11 +184,15 @@ async function scrapeFromHTML(recipeId: string) {
     // 実際のクックパッドURL形式を使用
     const url = `https://cookpad.com/jp/recipes/${recipeId}`
     
+    console.log('Fetching HTML from:', url)
+    
     const response = await fetch(url, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-        'Accept-Language': 'ja-JP,ja;q=0.9,en;q=0.8'
+        'Accept-Language': 'ja-JP,ja;q=0.9,en;q=0.8',
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache'
       }
     })
 
@@ -197,6 +201,17 @@ async function scrapeFromHTML(recipeId: string) {
     }
 
     const html = await response.text()
+    
+    console.log('HTML response status:', response.status)
+    console.log('HTML response headers:', Object.fromEntries(response.headers.entries()))
+    console.log('HTML length:', html.length)
+    console.log('HTML preview (first 5000 chars):', html.substring(0, 5000))
+    
+    // 材料と手順のセクションが存在するかチェック
+    const hasMaterials = html.includes('材料')
+    const hasSteps = html.includes('作り方')
+    console.log('Contains "材料":', hasMaterials)
+    console.log('Contains "作り方":', hasSteps)
     
     // 正規表現を使用してHTMLをパース
     return parseHTMLRecipe(html, url)
@@ -245,6 +260,8 @@ function parseHTMLRecipe(html: string, url: string) {
   
   // HTMLタグとCSSを除去する関数
   const cleanText = (text: string): string => {
+    console.log('Original text:', text)
+    
     // まず、HTMLタグを完全に除去
     let cleaned = text
       .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '') // scriptタグを除去
@@ -255,6 +272,8 @@ function parseHTMLRecipe(html: string, url: string) {
       .replace(/<br[^>]*>/gi, ' ') // brタグを空白に変換
       .replace(/<hr[^>]*>/gi, ' ') // hrタグを空白に変換
       .replace(/<[^>]*>/g, '') // 残りのHTMLタグを除去
+    
+    console.log('After HTML tag removal:', cleaned)
     
     // HTMLエンティティを変換
     cleaned = cleaned
@@ -268,8 +287,12 @@ function parseHTMLRecipe(html: string, url: string) {
       .replace(/&reg;/g, '®')
       .replace(/&trade;/g, '™')
     
+    console.log('After HTML entity conversion:', cleaned)
+    
     // 複数の空白を単一の空白に
     cleaned = cleaned.replace(/\s+/g, ' ')
+    
+    console.log('After whitespace normalization:', cleaned)
     
     // 残っている可能性のあるHTML属性の残骸を除去（より強力に）
     cleaned = cleaned
@@ -285,6 +308,8 @@ function parseHTMLRecipe(html: string, url: string) {
       .replace(/\{[^}]*\}/g, '') // CSSブロック
       .replace(/@[^{]*\{[^}]*\}/g, '') // CSSルール
     
+    console.log('After attribute removal:', cleaned)
+    
     // さらに強力な除去処理
     cleaned = cleaned
       .replace(/^[^a-zA-Z0-9\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]*/, '') // 先頭の非文字を除去
@@ -292,8 +317,12 @@ function parseHTMLRecipe(html: string, url: string) {
       .replace(/^[^a-zA-Z\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]*/, '') // 先頭の非文字（数字以外）を除去
       .replace(/^[^a-zA-Z\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]*/, '') // 再度先頭の非文字を除去
     
+    console.log('After final cleaning:', cleaned)
+    
     // 再度空白を正規化
     cleaned = cleaned.replace(/\s+/g, ' ').trim()
+    
+    console.log('Final result:', cleaned)
     
     return cleaned
   }
