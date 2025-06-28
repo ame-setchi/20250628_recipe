@@ -1,5 +1,29 @@
+export const runtime = 'nodejs'
+
 import { NextRequest, NextResponse } from 'next/server'
-import * as cheerio from 'cheerio'
+
+// Cookpad APIレスポンス型定義
+interface CookpadIngredient {
+  name: string
+}
+interface CookpadStep {
+  text: string
+}
+interface CookpadTag {
+  name: string
+}
+interface CookpadApiResponse {
+  title?: string
+  description?: string
+  introduction?: string
+  ingredients?: CookpadIngredient[]
+  steps?: CookpadStep[]
+  cooking_time?: number
+  servings?: number
+  image_url?: string
+  url?: string
+  tags?: CookpadTag[]
+}
 
 // クックパッドAPIのベースURL
 const COOKPAD_API_BASE = 'https://cookpad.com/api/v1'
@@ -86,7 +110,7 @@ async function fetchRecipeFromCookpad(recipeId: string) {
       throw new Error(`API request failed: ${response.status}`)
     }
 
-    const data = await response.json()
+    const data: CookpadApiResponse = await response.json()
     
     // クックパッドAPIのレスポンス形式に応じてデータを変換
     return transformCookpadData(data)
@@ -100,18 +124,18 @@ async function fetchRecipeFromCookpad(recipeId: string) {
 }
 
 // クックパッドAPIのデータをアプリケーション形式に変換
-function transformCookpadData(apiData: any) {
+function transformCookpadData(apiData: CookpadApiResponse) {
   return {
     title: apiData.title || 'レシピタイトル',
     description: apiData.description || apiData.introduction || '',
-    ingredients: apiData.ingredients?.map((ing: any) => ing.name) || [],
-    instructions: apiData.steps?.map((step: any) => step.text) || [],
+    ingredients: apiData.ingredients?.map((ing) => ing.name) || [],
+    instructions: apiData.steps?.map((step) => step.text) || [],
     cooking_time: apiData.cooking_time || 30,
     servings: apiData.servings || 2,
     difficulty: 'medium' as const,
     image_url: apiData.image_url || null,
     source_url: apiData.url || '',
-    tags: apiData.tags?.map((tag: any) => tag.name) || []
+    tags: apiData.tags?.map((tag) => tag.name) || []
   }
 }
 
@@ -134,7 +158,7 @@ async function scrapeFromHTML(recipeId: string) {
 
     const html = await response.text()
     
-    // cheerioを使用してHTMLをパース
+    // 正規表現を使用してHTMLをパース
     return parseHTMLRecipe(html, url)
     
   } catch (error) {
@@ -156,63 +180,57 @@ async function scrapeFromHTML(recipeId: string) {
   }
 }
 
-// cheerioを使用してHTMLからレシピデータを抽出
+// 正規表現を使用してHTMLからレシピデータを抽出
 function parseHTMLRecipe(html: string, url: string) {
-  const $ = cheerio.load(html)
-  
   // タイトルを抽出
-  const title = $('h1.recipe-show h1, .recipe_title, h1').first().text().trim() || 
-                $('title').text().replace(' | クックパッド', '').trim() ||
-                'レシピタイトル'
+  const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i)
+  const title = titleMatch ? titleMatch[1].replace(' | クックパッド', '').trim() : 'レシピタイトル'
   
-  // 説明を抽出
-  const description = $('.recipe_description, .description, .introduction').text().trim() || ''
+  // 説明を抽出（簡易版）
+  const descriptionMatch = html.match(/<meta[^>]*name="description"[^>]*content="([^"]*)"/i)
+  const description = descriptionMatch ? descriptionMatch[1] : ''
   
-  // 材料を抽出
+  // 材料を抽出（簡易版）
   const ingredients: string[] = []
-  $('.ingredient_row, .ingredient, .material').each((_, element) => {
-    const ingredientText = $(element).text().trim()
-    if (ingredientText && !ingredientText.includes('材料') && ingredientText.length > 1) {
-      ingredients.push(ingredientText)
-    }
-  })
+  const ingredientMatches = html.match(/<span[^>]*class="[^"]*ingredient[^"]*"[^>]*>([^<]+)<\/span>/gi)
+  if (ingredientMatches) {
+    ingredientMatches.forEach(match => {
+      const text = match.replace(/<[^>]*>/g, '').trim()
+      if (text && text.length > 1) {
+        ingredients.push(text)
+      }
+    })
+  }
   
-  // 手順を抽出
+  // 手順を抽出（簡易版）
   const instructions: string[] = []
-  $('.step, .instruction, .cooking_step').each((_, element) => {
-    const stepText = $(element).text().trim()
-    if (stepText && stepText.length > 1) {
-      instructions.push(stepText)
-    }
-  })
+  const instructionMatches = html.match(/<div[^>]*class="[^"]*step[^"]*"[^>]*>([^<]+)<\/div>/gi)
+  if (instructionMatches) {
+    instructionMatches.forEach(match => {
+      const text = match.replace(/<[^>]*>/g, '').trim()
+      if (text && text.length > 1) {
+        instructions.push(text)
+      }
+    })
+  }
   
   // 調理時間を抽出
   let cookingTime = 30
-  const timeText = $('.cooking_time, .time, .duration').text()
-  const timeMatch = timeText.match(/(\d+)/)
+  const timeMatch = html.match(/調理時間[：:]\s*(\d+)/)
   if (timeMatch) {
     cookingTime = parseInt(timeMatch[1])
   }
   
   // 人数を抽出
   let servings = 2
-  const servingsText = $('.servings, .portion, .yield').text()
-  const servingsMatch = servingsText.match(/(\d+)/)
+  const servingsMatch = html.match(/(\d+)人前/)
   if (servingsMatch) {
     servings = parseInt(servingsMatch[1])
   }
   
   // 画像URLを抽出
-  const imageUrl = $('.recipe_image img, .main_image img, .photo img').first().attr('src') || null
-  
-  // タグを抽出
-  const tags: string[] = []
-  $('.tag, .category, .keyword').each((_, element) => {
-    const tagText = $(element).text().trim()
-    if (tagText && tagText.length > 1) {
-      tags.push(tagText)
-    }
-  })
+  const imageMatch = html.match(/<img[^>]*src="([^"]*)"[^>]*class="[^"]*recipe[^"]*"/i)
+  const imageUrl = imageMatch ? imageMatch[1] : null
   
   return {
     title,
@@ -224,6 +242,6 @@ function parseHTMLRecipe(html: string, url: string) {
     difficulty: 'medium' as const,
     image_url: imageUrl,
     source_url: url,
-    tags
+    tags: []
   }
 } 
