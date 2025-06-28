@@ -243,6 +243,21 @@ function parseHTMLRecipe(html: string, url: string) {
   const descriptionMatch = html.match(/<meta[^>]*name="description"[^>]*content="([^"]*)"/i)
   const description = descriptionMatch ? descriptionMatch[1] : ''
   
+  // HTMLタグとCSSを除去する関数
+  const cleanText = (text: string): string => {
+    return text
+      .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '') // scriptタグを除去
+      .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '') // styleタグを除去
+      .replace(/<[^>]*>/g, '') // 残りのHTMLタグを除去
+      .replace(/\s+/g, ' ') // 複数の空白を単一の空白に
+      .replace(/&nbsp;/g, ' ') // HTMLエンティティを変換
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .trim()
+  }
+  
   // 材料を抽出（実際のクックパッドHTML構造に基づく）
   const ingredients: string[] = []
   
@@ -253,8 +268,8 @@ function parseHTMLRecipe(html: string, url: string) {
     const liMatches = materialsSection[1].match(/<li[^>]*>([\s\S]*?)<\/li>/gi)
     if (liMatches) {
       liMatches.forEach(match => {
-        const text = match.replace(/<[^>]*>/g, '').trim()
-        if (text && text.length > 1) {
+        const text = cleanText(match)
+        if (text && text.length > 1 && !text.includes('{') && !text.includes('}')) {
           ingredients.push(text)
         }
       })
@@ -267,8 +282,8 @@ function parseHTMLRecipe(html: string, url: string) {
     if (materialsDiv) {
       console.log('Found materials with div class ingredient:', materialsDiv.length)
       materialsDiv.forEach(match => {
-        const text = match.replace(/<[^>]*>/g, '').trim()
-        if (text && text.length > 1) {
+        const text = cleanText(match)
+        if (text && text.length > 1 && !text.includes('{') && !text.includes('}')) {
           ingredients.push(text)
         }
       })
@@ -282,7 +297,7 @@ function parseHTMLRecipe(html: string, url: string) {
       console.log('Found numbered list:', numberedList.length)
       numberedList.forEach(match => {
         const text = match.replace(/^\d+\.\s*/, '').trim()
-        if (text && text.length > 1) {
+        if (text && text.length > 1 && !text.includes('{') && !text.includes('}')) {
           ingredients.push(text)
         }
       })
@@ -301,8 +316,8 @@ function parseHTMLRecipe(html: string, url: string) {
     const liMatches = stepsSection[1].match(/<li[^>]*>([\s\S]*?)<\/li>/gi)
     if (liMatches) {
       liMatches.forEach(match => {
-        const text = match.replace(/<[^>]*>/g, '').trim()
-        if (text && text.length > 1) {
+        const text = cleanText(match)
+        if (text && text.length > 1 && !text.includes('{') && !text.includes('}')) {
           instructions.push(text)
         }
       })
@@ -315,8 +330,8 @@ function parseHTMLRecipe(html: string, url: string) {
     if (stepsDiv) {
       console.log('Found steps with div class step:', stepsDiv.length)
       stepsDiv.forEach(match => {
-        const text = match.replace(/<[^>]*>/g, '').trim()
-        if (text && text.length > 1) {
+        const text = cleanText(match)
+        if (text && text.length > 1 && !text.includes('{') && !text.includes('}')) {
           instructions.push(text)
         }
       })
@@ -329,8 +344,8 @@ function parseHTMLRecipe(html: string, url: string) {
     if (stepNumbers) {
       console.log('Found step numbers with content:', stepNumbers.length)
       stepNumbers.forEach(match => {
-        const text = match.replace(/<[^>]*>/g, '').trim()
-        if (text && text.length > 1) {
+        const text = cleanText(match)
+        if (text && text.length > 1 && !text.includes('{') && !text.includes('}')) {
           instructions.push(text)
         }
       })
