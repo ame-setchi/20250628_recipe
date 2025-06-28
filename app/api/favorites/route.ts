@@ -17,6 +17,7 @@ interface FavoriteRecipe {
 }
 
 // メモリ内でお気に入りを管理（実際のアプリではデータベースを使用）
+// eslint-disable-next-line prefer-const
 let favorites: FavoriteRecipe[] = []
 
 export async function GET() {
