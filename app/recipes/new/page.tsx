@@ -7,12 +7,23 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { ArrowLeft, Plus, Link as LinkIcon, Loader2 } from 'lucide-react'
+import { ArrowLeft, Plus, Link as LinkIcon, Loader2, Search, X } from 'lucide-react'
 import Link from 'next/link'
+
+interface SearchResult {
+  id: string
+  url: string
+  title: string
+  image_url: string | null
+}
 
 export default function NewRecipePage() {
   const [isLoading, setIsLoading] = useState(false)
+  const [isSearching, setIsSearching] = useState(false)
   const [url, setUrl] = useState('')
+  const [searchQuery, setSearchQuery] = useState('')
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([])
+  const [showSearchResults, setShowSearchResults] = useState(false)
   const [recipeData, setRecipeData] = useState({
     title: '',
     description: '',
@@ -64,6 +75,40 @@ export default function NewRecipePage() {
     } finally {
       setIsLoading(false)
     }
+  }
+
+  const handleSearch = async () => {
+    if (!searchQuery.trim()) {
+      alert('検索キーワードを入力してください')
+      return
+    }
+
+    setIsSearching(true)
+    try {
+      const response = await fetch(`/api/search?q=${encodeURIComponent(searchQuery.trim())}`)
+      const result = await response.json()
+
+      if (result.success) {
+        setSearchResults(result.data.recipes || [])
+        setShowSearchResults(true)
+      } else {
+        alert(result.error || '検索に失敗しました')
+      }
+    } catch (error) {
+      console.error('Error searching recipes:', error)
+      alert('検索に失敗しました')
+    } finally {
+      setIsSearching(false)
+    }
+  }
+
+  const handleSelectRecipe = async (recipeUrl: string) => {
+    setUrl(recipeUrl)
+    setShowSearchResults(false)
+    setSearchQuery('')
+    
+    // 選択したレシピを自動取得
+    await handleUrlFetch()
   }
 
   const addIngredient = () => {
@@ -247,6 +292,69 @@ export default function NewRecipePage() {
 
           {/* サイドバー */}
           <div className="space-y-6">
+            {/* クックパッド検索 */}
+            <Card>
+              <CardHeader>
+                <CardTitle>クックパッド検索</CardTitle>
+                <CardDescription>
+                  クックパッドでレシピを検索して選択
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex gap-2">
+                  <Input 
+                    placeholder="例: カレーライス" 
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+                  />
+                  <Button 
+                    size="sm" 
+                    onClick={handleSearch}
+                    disabled={isSearching}
+                  >
+                    {isSearching ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Search className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
+                
+                {/* 検索結果 */}
+                {showSearchResults && (
+                  <div className="border rounded-lg p-3 bg-gray-50">
+                    <div className="flex items-center justify-between mb-2">
+                      <h4 className="text-sm font-medium">検索結果</h4>
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={() => setShowSearchResults(false)}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <div className="space-y-2 max-h-40 overflow-y-auto">
+                      {searchResults.length > 0 ? (
+                        searchResults.map((recipe) => (
+                          <button
+                            key={recipe.id}
+                            onClick={() => handleSelectRecipe(recipe.url)}
+                            className="w-full text-left p-2 rounded hover:bg-white transition-colors text-sm"
+                          >
+                            <div className="font-medium">{recipe.title}</div>
+                            <div className="text-xs text-gray-500">{recipe.url}</div>
+                          </button>
+                        ))
+                      ) : (
+                        <p className="text-sm text-gray-500">検索結果が見つかりませんでした</p>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
             {/* URL入力 */}
             <Card>
               <CardHeader>
