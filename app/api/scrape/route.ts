@@ -271,7 +271,7 @@ function parseHTMLRecipe(html: string, url: string) {
     // 複数の空白を単一の空白に
     cleaned = cleaned.replace(/\s+/g, ' ')
     
-    // 残っている可能性のあるHTML属性の残骸を除去
+    // 残っている可能性のあるHTML属性の残骸を除去（より強力に）
     cleaned = cleaned
       .replace(/[a-zA-Z-]+="[^"]*"/gi, '') // 属性="値"
       .replace(/[a-zA-Z-]+='[^']*'/gi, '') // 属性='値'
@@ -285,6 +285,13 @@ function parseHTMLRecipe(html: string, url: string) {
       .replace(/\{[^}]*\}/g, '') // CSSブロック
       .replace(/@[^{]*\{[^}]*\}/g, '') // CSSルール
     
+    // さらに強力な除去処理
+    cleaned = cleaned
+      .replace(/^[^a-zA-Z0-9\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]*/, '') // 先頭の非文字を除去
+      .replace(/[^a-zA-Z0-9\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF\s、。！？]*$/, '') // 末尾の非文字を除去
+      .replace(/^[^a-zA-Z\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]*/, '') // 先頭の非文字（数字以外）を除去
+      .replace(/^[^a-zA-Z\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]*/, '') // 再度先頭の非文字を除去
+    
     // 再度空白を正規化
     cleaned = cleaned.replace(/\s+/g, ' ').trim()
     
@@ -294,6 +301,8 @@ function parseHTMLRecipe(html: string, url: string) {
   // テキストの品質チェック関数
   const isValidText = (text: string): boolean => {
     if (!text || text.length < 2) return false
+    
+    // HTML属性やCSSコードが含まれるテキストを除外
     if (text.includes('{') || text.includes('}')) return false
     if (text.includes('media=') || text.includes('data-')) return false
     if (text.includes('rel=') || text.includes('href=')) return false
@@ -305,12 +314,19 @@ function parseHTMLRecipe(html: string, url: string) {
     if (text.includes('http-equiv=')) return false
     if (text.includes('sizes=') || text.includes('width=') || text.includes('height=')) return false
     if (text.includes('alt=') || text.includes('title=') || text.includes('target=')) return false
+    
+    // パターンマッチングで不適切なテキストを除外
     if (text.match(/^\d+"\s*\/?>$/)) return false
     if (text.match(/^"[^"]*"\s*\/?>$/)) return false
     if (text.match(/^\s*[0-9]+\s*$/)) return false
     if (text.match(/^\s*[a-zA-Z0-9_\-]+\s*$/)) return false
     if (text.match(/^\s*[a-zA-Z0-9_\-]+="[^"]*"\s*\/?>\s*$/)) return false
     if (text.match(/^\s*[a-zA-Z0-9_\-]+='[^']*'\s*\/?>\s*$/)) return false
+    
+    // 先頭が不適切な文字で始まるテキストを除外
+    if (text.match(/^[^a-zA-Z\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]/)) return false
+    if (text.match(/^[0-9\s\-_\/\\|@#$%^&*()+=<>[\]{}:;"'`~,.]/)) return false
+    
     // セクションタイトルや不要なテキストを除外
     if (text.includes('材料') || text.includes('作り方') || text.includes('調理時間')) return false
     if (text.includes('人分') || text.includes('分') || text.includes('時間')) return false
@@ -318,9 +334,19 @@ function parseHTMLRecipe(html: string, url: string) {
     if (text.includes('塩分') || text.includes('糖質')) return false
     if (text.includes('タンパク質') || text.includes('脂質')) return false
     if (text.includes('食物繊維')) return false
+    
     // 画像関連のテキストを除外
     if (text.includes('.png') || text.includes('.jpg') || text.includes('.jpeg') || text.includes('.gif')) return false
     if (text.includes('72x72') || text.includes('144x144') || text.includes('192x192')) return false
+    if (text.includes('.ico') || text.includes('.svg')) return false
+    
+    // テキストが短すぎる場合を除外
+    if (text.length < 3) return false
+    
+    // 日本語文字が含まれているかチェック（レシピは日本語が含まれるはず）
+    const hasJapanese = /[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]/.test(text)
+    if (!hasJapanese && text.length < 10) return false
+    
     return true
   }
   
@@ -336,7 +362,14 @@ function parseHTMLRecipe(html: string, url: string) {
       console.log('Found li matches:', liMatches.length)
       liMatches.forEach((match, index) => {
         console.log(`Processing li ${index + 1}:`, match.substring(0, 100))
-        const text = cleanText(match)
+        let text = cleanText(match)
+        
+        // 追加の前処理
+        text = text
+          .replace(/^[^a-zA-Z\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]*/, '') // 先頭の非文字を除去
+          .replace(/[^a-zA-Z0-9\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF\s、。！？]*$/, '') // 末尾の非文字を除去
+          .trim()
+        
         console.log(`Cleaned text ${index + 1}:`, text)
         if (isValidText(text)) {
           ingredients.push(text)
@@ -438,7 +471,14 @@ function parseHTMLRecipe(html: string, url: string) {
       console.log('Found steps li matches:', liMatches.length)
       liMatches.forEach((match, index) => {
         console.log(`Processing step li ${index + 1}:`, match.substring(0, 100))
-        const text = cleanText(match)
+        let text = cleanText(match)
+        
+        // 追加の前処理
+        text = text
+          .replace(/^[^a-zA-Z\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]*/, '') // 先頭の非文字を除去
+          .replace(/[^a-zA-Z0-9\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF\s、。！？]*$/, '') // 末尾の非文字を除去
+          .trim()
+        
         console.log(`Cleaned step text ${index + 1}:`, text)
         if (isValidText(text)) {
           instructions.push(text)
