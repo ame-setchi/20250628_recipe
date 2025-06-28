@@ -230,40 +230,28 @@ function parseHTMLRecipe(html: string, url: string) {
   const descriptionMatch = html.match(/<meta[^>]*name="description"[^>]*content="([^"]*)"/i)
   const description = descriptionMatch ? descriptionMatch[1] : ''
   
-  // 材料を抽出（クックパッドの実際のHTML構造に合わせて）
+  // 材料を抽出（ingredient_nameクラスのspan）
   const ingredients: string[] = []
-  
-  // 材料セクションを探す
-  const materialsMatch = html.match(/<h2[^>]*>材料<\/h2>[\s\S]*?<ul[^>]*>([\s\S]*?)<\/ul>/i)
-  if (materialsMatch) {
-    const materialsHtml = materialsMatch[1]
-    const liMatches = materialsHtml.match(/<li[^>]*>([^<]+)<\/li>/gi)
-    if (liMatches) {
-      liMatches.forEach(match => {
-        const text = match.replace(/<[^>]*>/g, '').trim()
-        if (text && text.length > 1) {
-          ingredients.push(text)
-        }
-      })
-    }
+  const ingredientMatches = html.match(/<span[^>]*class="ingredient_name"[^>]*>([^<]+)<\/span>/g)
+  if (ingredientMatches) {
+    ingredientMatches.forEach(match => {
+      const text = match.replace(/<[^>]*>/g, '').trim()
+      if (text && text.length > 1) {
+        ingredients.push(text)
+      }
+    })
   }
   
-  // 手順を抽出（クックパッドの実際のHTML構造に合わせて）
+  // 作り方を抽出（step_textクラスのdiv）
   const instructions: string[] = []
-  
-  // 作り方セクションを探す
-  const stepsMatch = html.match(/<h2[^>]*>作り方<\/h2>[\s\S]*?<ol[^>]*>([\s\S]*?)<\/ol>/i)
-  if (stepsMatch) {
-    const stepsHtml = stepsMatch[1]
-    const liMatches = stepsHtml.match(/<li[^>]*>([^<]+)<\/li>/gi)
-    if (liMatches) {
-      liMatches.forEach(match => {
-        const text = match.replace(/<[^>]*>/g, '').trim()
-        if (text && text.length > 1) {
-          instructions.push(text)
-        }
-      })
-    }
+  const instructionMatches = html.match(/<div[^>]*class="step_text"[^>]*>([^<]+)<\/div>/g)
+  if (instructionMatches) {
+    instructionMatches.forEach(match => {
+      const text = match.replace(/<[^>]*>/g, '').trim()
+      if (text && text.length > 1) {
+        instructions.push(text)
+      }
+    })
   }
   
   // 調理時間を抽出
