@@ -300,53 +300,145 @@ function parseHTMLRecipe(html: string, url: string) {
   
   // テキストの品質チェック関数
   const isValidText = (text: string): boolean => {
-    if (!text || text.length < 2) return false
+    console.log('Checking text validity:', text)
+    
+    if (!text || text.length < 2) {
+      console.log('Rejected: too short or empty')
+      return false
+    }
     
     // HTML属性やCSSコードが含まれるテキストを除外
-    if (text.includes('{') || text.includes('}')) return false
-    if (text.includes('media=') || text.includes('data-')) return false
-    if (text.includes('rel=') || text.includes('href=')) return false
-    if (text.includes('src=') || text.includes('class=')) return false
-    if (text.includes('id=') || text.includes('style=')) return false
-    if (text.includes('type=') || text.includes('name=')) return false
-    if (text.includes('value=') || text.includes('content=')) return false
-    if (text.includes('property=') || text.includes('charset=')) return false
-    if (text.includes('http-equiv=')) return false
-    if (text.includes('sizes=') || text.includes('width=') || text.includes('height=')) return false
-    if (text.includes('alt=') || text.includes('title=') || text.includes('target=')) return false
+    if (text.includes('{') || text.includes('}')) {
+      console.log('Rejected: contains CSS brackets')
+      return false
+    }
+    if (text.includes('media=') || text.includes('data-')) {
+      console.log('Rejected: contains HTML attributes')
+      return false
+    }
+    if (text.includes('rel=') || text.includes('href=')) {
+      console.log('Rejected: contains HTML attributes')
+      return false
+    }
+    if (text.includes('src=') || text.includes('class=')) {
+      console.log('Rejected: contains HTML attributes')
+      return false
+    }
+    if (text.includes('id=') || text.includes('style=')) {
+      console.log('Rejected: contains HTML attributes')
+      return false
+    }
+    if (text.includes('type=') || text.includes('name=')) {
+      console.log('Rejected: contains HTML attributes')
+      return false
+    }
+    if (text.includes('value=') || text.includes('content=')) {
+      console.log('Rejected: contains HTML attributes')
+      return false
+    }
+    if (text.includes('property=') || text.includes('charset=')) {
+      console.log('Rejected: contains HTML attributes')
+      return false
+    }
+    if (text.includes('http-equiv=')) {
+      console.log('Rejected: contains HTML attributes')
+      return false
+    }
+    if (text.includes('sizes=') || text.includes('width=') || text.includes('height=')) {
+      console.log('Rejected: contains HTML attributes')
+      return false
+    }
+    if (text.includes('alt=') || text.includes('title=') || text.includes('target=')) {
+      console.log('Rejected: contains HTML attributes')
+      return false
+    }
     
     // パターンマッチングで不適切なテキストを除外
-    if (text.match(/^\d+"\s*\/?>$/)) return false
-    if (text.match(/^"[^"]*"\s*\/?>$/)) return false
-    if (text.match(/^\s*[0-9]+\s*$/)) return false
-    if (text.match(/^\s*[a-zA-Z0-9_\-]+\s*$/)) return false
-    if (text.match(/^\s*[a-zA-Z0-9_\-]+="[^"]*"\s*\/?>\s*$/)) return false
-    if (text.match(/^\s*[a-zA-Z0-9_\-]+='[^']*'\s*\/?>\s*$/)) return false
+    if (text.match(/^\d+"\s*\/?>$/)) {
+      console.log('Rejected: matches HTML pattern 1')
+      return false
+    }
+    if (text.match(/^"[^"]*"\s*\/?>$/)) {
+      console.log('Rejected: matches HTML pattern 2')
+      return false
+    }
+    if (text.match(/^\s*[0-9]+\s*$/)) {
+      console.log('Rejected: numbers only')
+      return false
+    }
+    if (text.match(/^\s*[a-zA-Z0-9_\-]+\s*$/)) {
+      console.log('Rejected: alphanumeric only')
+      return false
+    }
+    if (text.match(/^\s*[a-zA-Z0-9_\-]+="[^"]*"\s*\/?>\s*$/)) {
+      console.log('Rejected: matches HTML pattern 3')
+      return false
+    }
+    if (text.match(/^\s*[a-zA-Z0-9_\-]+='[^']*'\s*\/?>\s*$/)) {
+      console.log('Rejected: matches HTML pattern 4')
+      return false
+    }
     
-    // 先頭が不適切な文字で始まるテキストを除外
-    if (text.match(/^[^a-zA-Z\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]/)) return false
-    if (text.match(/^[0-9\s\-_\/\\|@#$%^&*()+=<>[\]{}:;"'`~,.]/)) return false
+    // 先頭が不適切な文字で始まるテキストを除外（緩和）
+    if (text.match(/^[0-9\s\-_\/\\|@#$%^&*()+=<>[\]{}:;"'`~,.]/)) {
+      console.log('Rejected: starts with invalid character')
+      return false
+    }
     
     // セクションタイトルや不要なテキストを除外
-    if (text.includes('材料') || text.includes('作り方') || text.includes('調理時間')) return false
-    if (text.includes('人分') || text.includes('分') || text.includes('時間')) return false
-    if (text.includes('カロリー') || text.includes('kcal')) return false
-    if (text.includes('塩分') || text.includes('糖質')) return false
-    if (text.includes('タンパク質') || text.includes('脂質')) return false
-    if (text.includes('食物繊維')) return false
+    if (text.includes('材料') || text.includes('作り方') || text.includes('調理時間')) {
+      console.log('Rejected: contains section title')
+      return false
+    }
+    if (text.includes('人分') || text.includes('分') || text.includes('時間')) {
+      console.log('Rejected: contains time/portion info')
+      return false
+    }
+    if (text.includes('カロリー') || text.includes('kcal')) {
+      console.log('Rejected: contains calorie info')
+      return false
+    }
+    if (text.includes('塩分') || text.includes('糖質')) {
+      console.log('Rejected: contains nutrition info')
+      return false
+    }
+    if (text.includes('タンパク質') || text.includes('脂質')) {
+      console.log('Rejected: contains nutrition info')
+      return false
+    }
+    if (text.includes('食物繊維')) {
+      console.log('Rejected: contains nutrition info')
+      return false
+    }
     
     // 画像関連のテキストを除外
-    if (text.includes('.png') || text.includes('.jpg') || text.includes('.jpeg') || text.includes('.gif')) return false
-    if (text.includes('72x72') || text.includes('144x144') || text.includes('192x192')) return false
-    if (text.includes('.ico') || text.includes('.svg')) return false
+    if (text.includes('.png') || text.includes('.jpg') || text.includes('.jpeg') || text.includes('.gif')) {
+      console.log('Rejected: contains image extension')
+      return false
+    }
+    if (text.includes('72x72') || text.includes('144x144') || text.includes('192x192')) {
+      console.log('Rejected: contains image size')
+      return false
+    }
+    if (text.includes('.ico') || text.includes('.svg')) {
+      console.log('Rejected: contains image extension')
+      return false
+    }
     
-    // テキストが短すぎる場合を除外
-    if (text.length < 3) return false
+    // テキストが短すぎる場合を除外（緩和）
+    if (text.length < 2) {
+      console.log('Rejected: too short')
+      return false
+    }
     
-    // 日本語文字が含まれているかチェック（レシピは日本語が含まれるはず）
+    // 日本語文字が含まれているかチェック（緩和）
     const hasJapanese = /[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]/.test(text)
-    if (!hasJapanese && text.length < 10) return false
+    if (!hasJapanese && text.length < 5) {
+      console.log('Rejected: no Japanese characters and too short')
+      return false
+    }
     
+    console.log('Text is valid:', text)
     return true
   }
   
@@ -416,13 +508,28 @@ function parseHTMLRecipe(html: string, url: string) {
   if (ingredients.length === 0) {
     const fullMaterialsSection = html.match(/<h2[^>]*>材料<\/h2>([\s\S]*?)(?=<h2|$)/i)
     if (fullMaterialsSection) {
-      console.log('Found full materials section, looking for paragraphs')
-      const paragraphs = fullMaterialsSection[1].match(/<p[^>]*>([\s\S]*?)<\/p>/gi)
-      if (paragraphs) {
-        paragraphs.forEach(match => {
-          const text = cleanText(match)
+      console.log('Found full materials section, extracting all text')
+      const sectionText = fullMaterialsSection[1]
+      
+      // 材料セクション内の全てのテキストを抽出
+      const textMatches = sectionText.match(/[^<>]+/g)
+      if (textMatches) {
+        console.log('Found text matches in materials section:', textMatches.length)
+        textMatches.forEach((match, index) => {
+          let text = cleanText(match)
+          
+          // 追加の前処理
+          text = text
+            .replace(/^[^a-zA-Z\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]*/, '') // 先頭の非文字を除去
+            .replace(/[^a-zA-Z0-9\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF\s、。！？]*$/, '') // 末尾の非文字を除去
+            .trim()
+          
+          console.log(`Processing text match ${index + 1}:`, text)
           if (isValidText(text)) {
             ingredients.push(text)
+            console.log(`Added ingredient from text match:`, text)
+          } else {
+            console.log(`Rejected text match:`, text)
           }
         })
       }
