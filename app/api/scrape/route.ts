@@ -264,6 +264,10 @@ function parseHTMLRecipe(html: string, url: string) {
       .replace(/&copy;/g, '©')
       .replace(/&reg;/g, '®')
       .replace(/&trade;/g, '™')
+      // HTML属性を除去（より包括的に）
+      .replace(/[a-zA-Z-]+="[^"]*"/gi, '') // 任意の属性="値"を除去
+      .replace(/[a-zA-Z-]+='[^']*'/gi, '') // 任意の属性='値'を除去
+      .replace(/[a-zA-Z-]+=[^\s>]+/gi, '') // 任意の属性=値（クォートなし）を除去
       .replace(/media="[^"]*"/gi, '') // media属性を除去
       .replace(/data-[^=]*="[^"]*"/gi, '') // data属性を除去
       .replace(/rel="[^"]*"/gi, '') // rel属性を除去
@@ -279,6 +283,14 @@ function parseHTMLRecipe(html: string, url: string) {
       .replace(/property="[^"]*"/gi, '') // property属性を除去
       .replace(/charset="[^"]*"/gi, '') // charset属性を除去
       .replace(/http-equiv="[^"]*"/gi, '') // http-equiv属性を除去
+      .replace(/sizes="[^"]*"/gi, '') // sizes属性を除去
+      .replace(/width="[^"]*"/gi, '') // width属性を除去
+      .replace(/height="[^"]*"/gi, '') // height属性を除去
+      .replace(/alt="[^"]*"/gi, '') // alt属性を除去
+      .replace(/title="[^"]*"/gi, '') // title属性を除去
+      .replace(/target="[^"]*"/gi, '') // target属性を除去
+      .replace(/>\s*>/g, '') // 自己終了タグの残骸を除去
+      .replace(/\s*\/\s*>/g, '') // 自己終了タグの残骸を除去
       .replace(/\{[^}]*\}/g, '') // CSSブロックを除去
       .replace(/@[^{]*\{[^}]*\}/g, '') // CSSルールを除去
       .replace(/\d+"\s*\/?>/g, '') // 数字+" /> パターンを除去
@@ -301,10 +313,14 @@ function parseHTMLRecipe(html: string, url: string) {
     if (text.includes('value=') || text.includes('content=')) return false
     if (text.includes('property=') || text.includes('charset=')) return false
     if (text.includes('http-equiv=')) return false
+    if (text.includes('sizes=') || text.includes('width=') || text.includes('height=')) return false
+    if (text.includes('alt=') || text.includes('title=') || text.includes('target=')) return false
     if (text.match(/^\d+"\s*\/?>$/)) return false
     if (text.match(/^"[^"]*"\s*\/?>$/)) return false
     if (text.match(/^\s*[0-9]+\s*$/)) return false
     if (text.match(/^\s*[a-zA-Z0-9_\-]+\s*$/)) return false
+    if (text.match(/^\s*[a-zA-Z0-9_\-]+="[^"]*"\s*\/?>\s*$/)) return false
+    if (text.match(/^\s*[a-zA-Z0-9_\-]+='[^']*'\s*\/?>\s*$/)) return false
     // セクションタイトルや不要なテキストを除外
     if (text.includes('材料') || text.includes('作り方') || text.includes('調理時間')) return false
     if (text.includes('人分') || text.includes('分') || text.includes('時間')) return false
@@ -312,6 +328,9 @@ function parseHTMLRecipe(html: string, url: string) {
     if (text.includes('塩分') || text.includes('糖質')) return false
     if (text.includes('タンパク質') || text.includes('脂質')) return false
     if (text.includes('食物繊維')) return false
+    // 画像関連のテキストを除外
+    if (text.includes('.png') || text.includes('.jpg') || text.includes('.jpeg') || text.includes('.gif')) return false
+    if (text.includes('72x72') || text.includes('144x144') || text.includes('192x192')) return false
     return true
   }
   
