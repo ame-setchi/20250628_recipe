@@ -248,6 +248,8 @@ function parseHTMLRecipe(html: string, url: string) {
     return text
       .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '') // scriptタグを除去
       .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '') // styleタグを除去
+      .replace(/<link[^>]*>/gi, '') // linkタグを除去
+      .replace(/<meta[^>]*>/gi, '') // metaタグを除去
       .replace(/<[^>]*>/g, '') // 残りのHTMLタグを除去
       .replace(/\s+/g, ' ') // 複数の空白を単一の空白に
       .replace(/&nbsp;/g, ' ') // HTMLエンティティを変換
@@ -255,6 +257,16 @@ function parseHTMLRecipe(html: string, url: string) {
       .replace(/&lt;/g, '<')
       .replace(/&gt;/g, '>')
       .replace(/&quot;/g, '"')
+      .replace(/media="[^"]*"/gi, '') // media属性を除去
+      .replace(/data-[^=]*="[^"]*"/gi, '') // data属性を除去
+      .replace(/rel="[^"]*"/gi, '') // rel属性を除去
+      .replace(/href="[^"]*"/gi, '') // href属性を除去
+      .replace(/src="[^"]*"/gi, '') // src属性を除去
+      .replace(/class="[^"]*"/gi, '') // class属性を除去
+      .replace(/id="[^"]*"/gi, '') // id属性を除去
+      .replace(/style="[^"]*"/gi, '') // style属性を除去
+      .replace(/\{[^}]*\}/g, '') // CSSブロックを除去
+      .replace(/@[^{]*\{[^}]*\}/g, '') // CSSルールを除去
       .trim()
   }
   
@@ -276,7 +288,24 @@ function parseHTMLRecipe(html: string, url: string) {
     }
   }
   
-  // パターン2: 材料セクションの直後のdiv
+  // パターン2: 材料セクションの直後のol/li
+  if (ingredients.length === 0) {
+    const materialsOlSection = html.match(/<h2[^>]*>材料<\/h2>[\s\S]*?<ol[^>]*>([\s\S]*?)<\/ol>/i)
+    if (materialsOlSection) {
+      console.log('Found materials section with ol')
+      const liMatches = materialsOlSection[1].match(/<li[^>]*>([\s\S]*?)<\/li>/gi)
+      if (liMatches) {
+        liMatches.forEach(match => {
+          const text = cleanText(match)
+          if (text && text.length > 1 && !text.includes('{') && !text.includes('}')) {
+            ingredients.push(text)
+          }
+        })
+      }
+    }
+  }
+  
+  // パターン3: 材料セクションの直後のdiv
   if (ingredients.length === 0) {
     const materialsDiv = html.match(/<h2[^>]*>材料<\/h2>[\s\S]*?<div[^>]*class="[^"]*ingredient[^"]*"[^>]*>([\s\S]*?)<\/div>/gi)
     if (materialsDiv) {
@@ -290,7 +319,24 @@ function parseHTMLRecipe(html: string, url: string) {
     }
   }
   
-  // パターン3: 数字付きリスト（1. 材料名 2. 材料名）
+  // パターン4: 材料セクション全体を取得して段落を探す
+  if (ingredients.length === 0) {
+    const fullMaterialsSection = html.match(/<h2[^>]*>材料<\/h2>([\s\S]*?)(?=<h2|$)/i)
+    if (fullMaterialsSection) {
+      console.log('Found full materials section, looking for paragraphs')
+      const paragraphs = fullMaterialsSection[1].match(/<p[^>]*>([\s\S]*?)<\/p>/gi)
+      if (paragraphs) {
+        paragraphs.forEach(match => {
+          const text = cleanText(match)
+          if (text && text.length > 1 && !text.includes('{') && !text.includes('}')) {
+            ingredients.push(text)
+          }
+        })
+      }
+    }
+  }
+  
+  // パターン5: 数字付きリスト（1. 材料名 2. 材料名）
   if (ingredients.length === 0) {
     const numberedList = html.match(/\d+\.\s*([^<\n]+)/g)
     if (numberedList) {
@@ -298,6 +344,21 @@ function parseHTMLRecipe(html: string, url: string) {
       numberedList.forEach(match => {
         const text = match.replace(/^\d+\.\s*/, '').trim()
         if (text && text.length > 1 && !text.includes('{') && !text.includes('}')) {
+          ingredients.push(text)
+        }
+      })
+    }
+  }
+  
+  // パターン6: 材料セクション内のdiv要素を全て取得
+  if (ingredients.length === 0) {
+    const materialsDivs = html.match(/<h2[^>]*>材料<\/h2>[\s\S]*?<div[^>]*>([\s\S]*?)<\/div>/gi)
+    if (materialsDivs) {
+      console.log('Found materials divs:', materialsDivs.length)
+      materialsDivs.forEach(match => {
+        const text = cleanText(match)
+        if (text && text.length > 1 && !text.includes('{') && !text.includes('}') && 
+            !text.includes('材料') && !text.includes('作り方') && !text.includes('調理時間')) {
           ingredients.push(text)
         }
       })
@@ -324,7 +385,24 @@ function parseHTMLRecipe(html: string, url: string) {
     }
   }
   
-  // パターン2: 作り方セクションの直後のdiv
+  // パターン2: 作り方セクションの直後のul/li
+  if (instructions.length === 0) {
+    const stepsUlSection = html.match(/<h2[^>]*>作り方<\/h2>[\s\S]*?<ul[^>]*>([\s\S]*?)<\/ul>/i)
+    if (stepsUlSection) {
+      console.log('Found steps section with ul')
+      const liMatches = stepsUlSection[1].match(/<li[^>]*>([\s\S]*?)<\/li>/gi)
+      if (liMatches) {
+        liMatches.forEach(match => {
+          const text = cleanText(match)
+          if (text && text.length > 1 && !text.includes('{') && !text.includes('}')) {
+            instructions.push(text)
+          }
+        })
+      }
+    }
+  }
+  
+  // パターン3: 作り方セクションの直後のdiv
   if (instructions.length === 0) {
     const stepsDiv = html.match(/<h2[^>]*>作り方<\/h2>[\s\S]*?<div[^>]*class="[^"]*step[^"]*"[^>]*>([\s\S]*?)<\/div>/gi)
     if (stepsDiv) {
@@ -338,7 +416,7 @@ function parseHTMLRecipe(html: string, url: string) {
     }
   }
   
-  // パターン3: 手順の数字付きリスト
+  // パターン4: 手順の数字付きリスト
   if (instructions.length === 0) {
     const stepNumbers = html.match(/<span[^>]*class="[^"]*step-number[^"]*"[^>]*>\d+<\/span>[\s\S]*?<div[^>]*class="[^"]*step-content[^"]*"[^>]*>([\s\S]*?)<\/div>/gi)
     if (stepNumbers) {
@@ -346,6 +424,52 @@ function parseHTMLRecipe(html: string, url: string) {
       stepNumbers.forEach(match => {
         const text = cleanText(match)
         if (text && text.length > 1 && !text.includes('{') && !text.includes('}')) {
+          instructions.push(text)
+        }
+      })
+    }
+  }
+  
+  // パターン5: 作り方セクション全体を取得して段落を探す
+  if (instructions.length === 0) {
+    const fullStepsSection = html.match(/<h2[^>]*>作り方<\/h2>([\s\S]*?)(?=<h2|$)/i)
+    if (fullStepsSection) {
+      console.log('Found full steps section, looking for paragraphs')
+      const paragraphs = fullStepsSection[1].match(/<p[^>]*>([\s\S]*?)<\/p>/gi)
+      if (paragraphs) {
+        paragraphs.forEach(match => {
+          const text = cleanText(match)
+          if (text && text.length > 5 && !text.includes('{') && !text.includes('}')) {
+            instructions.push(text)
+          }
+        })
+      }
+    }
+  }
+  
+  // パターン6: 数字付きの手順（1. 手順内容 2. 手順内容）
+  if (instructions.length === 0) {
+    const numberedSteps = html.match(/\d+\.\s*([^<\n]+)/g)
+    if (numberedSteps) {
+      console.log('Found numbered steps:', numberedSteps.length)
+      numberedSteps.forEach(match => {
+        const text = match.replace(/^\d+\.\s*/, '').trim()
+        if (text && text.length > 5 && !text.includes('{') && !text.includes('}')) {
+          instructions.push(text)
+        }
+      })
+    }
+  }
+  
+  // パターン7: 作り方セクション内のdiv要素を全て取得
+  if (instructions.length === 0) {
+    const stepsDivs = html.match(/<h2[^>]*>作り方<\/h2>[\s\S]*?<div[^>]*>([\s\S]*?)<\/div>/gi)
+    if (stepsDivs) {
+      console.log('Found steps divs:', stepsDivs.length)
+      stepsDivs.forEach(match => {
+        const text = cleanText(match)
+        if (text && text.length > 10 && !text.includes('{') && !text.includes('}') && 
+            !text.includes('材料') && !text.includes('作り方') && !text.includes('調理時間')) {
           instructions.push(text)
         }
       })
