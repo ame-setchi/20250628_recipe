@@ -222,6 +222,10 @@ async function scrapeFromHTML(recipeId: string) {
 
 // 正規表現を使用してHTMLからレシピデータを抽出
 function parseHTMLRecipe(html: string, url: string) {
+  // デバッグ用：HTMLの一部をログ出力
+  console.log('HTML length:', html.length)
+  console.log('HTML preview:', html.substring(0, 1000))
+  
   // タイトルを抽出
   const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i)
   const title = titleMatch ? titleMatch[1].replace(' | クックパッド', '').trim() : 'レシピタイトル'
@@ -230,10 +234,13 @@ function parseHTMLRecipe(html: string, url: string) {
   const descriptionMatch = html.match(/<meta[^>]*name="description"[^>]*content="([^"]*)"/i)
   const description = descriptionMatch ? descriptionMatch[1] : ''
   
-  // 材料を抽出（ingredient_nameクラスのspan）
+  // 材料を抽出（複数のパターンを試行）
   const ingredients: string[] = []
-  const ingredientMatches = html.match(/<span[^>]*class="ingredient_name"[^>]*>([^<]+)<\/span>/g)
+  
+  // パターン1: ingredient_nameクラス
+  let ingredientMatches = html.match(/<span[^>]*class="ingredient_name"[^>]*>([^<]+)<\/span>/g)
   if (ingredientMatches) {
+    console.log('Found ingredients with ingredient_name class:', ingredientMatches.length)
     ingredientMatches.forEach(match => {
       const text = match.replace(/<[^>]*>/g, '').trim()
       if (text && text.length > 1) {
@@ -242,10 +249,46 @@ function parseHTMLRecipe(html: string, url: string) {
     })
   }
   
-  // 作り方を抽出（step_textクラスのdiv）
+  // パターン2: ingredient_rowクラス
+  if (ingredients.length === 0) {
+    ingredientMatches = html.match(/<div[^>]*class="ingredient_row"[^>]*>([^<]+)<\/div>/g)
+    if (ingredientMatches) {
+      console.log('Found ingredients with ingredient_row class:', ingredientMatches.length)
+      ingredientMatches.forEach(match => {
+        const text = match.replace(/<[^>]*>/g, '').trim()
+        if (text && text.length > 1) {
+          ingredients.push(text)
+        }
+      })
+    }
+  }
+  
+  // パターン3: 材料セクション全体を探す
+  if (ingredients.length === 0) {
+    const materialsSection = html.match(/材料[\s\S]*?<ul[^>]*>([\s\S]*?)<\/ul>/i)
+    if (materialsSection) {
+      console.log('Found materials section')
+      const liMatches = materialsSection[1].match(/<li[^>]*>([^<]+)<\/li>/gi)
+      if (liMatches) {
+        liMatches.forEach(match => {
+          const text = match.replace(/<[^>]*>/g, '').trim()
+          if (text && text.length > 1) {
+            ingredients.push(text)
+          }
+        })
+      }
+    }
+  }
+  
+  console.log('Extracted ingredients:', ingredients)
+  
+  // 作り方を抽出（複数のパターンを試行）
   const instructions: string[] = []
-  const instructionMatches = html.match(/<div[^>]*class="step_text"[^>]*>([^<]+)<\/div>/g)
+  
+  // パターン1: step_textクラス
+  let instructionMatches = html.match(/<div[^>]*class="step_text"[^>]*>([^<]+)<\/div>/g)
   if (instructionMatches) {
+    console.log('Found instructions with step_text class:', instructionMatches.length)
     instructionMatches.forEach(match => {
       const text = match.replace(/<[^>]*>/g, '').trim()
       if (text && text.length > 1) {
@@ -253,6 +296,39 @@ function parseHTMLRecipe(html: string, url: string) {
       }
     })
   }
+  
+  // パターン2: stepクラス
+  if (instructions.length === 0) {
+    instructionMatches = html.match(/<div[^>]*class="step"[^>]*>([^<]+)<\/div>/g)
+    if (instructionMatches) {
+      console.log('Found instructions with step class:', instructionMatches.length)
+      instructionMatches.forEach(match => {
+        const text = match.replace(/<[^>]*>/g, '').trim()
+        if (text && text.length > 1) {
+          instructions.push(text)
+        }
+      })
+    }
+  }
+  
+  // パターン3: 作り方セクション全体を探す
+  if (instructions.length === 0) {
+    const stepsSection = html.match(/作り方[\s\S]*?<ol[^>]*>([\s\S]*?)<\/ol>/i)
+    if (stepsSection) {
+      console.log('Found steps section')
+      const liMatches = stepsSection[1].match(/<li[^>]*>([^<]+)<\/li>/gi)
+      if (liMatches) {
+        liMatches.forEach(match => {
+          const text = match.replace(/<[^>]*>/g, '').trim()
+          if (text && text.length > 1) {
+            instructions.push(text)
+          }
+        })
+      }
+    }
+  }
+  
+  console.log('Extracted instructions:', instructions)
   
   // 調理時間を抽出
   let cookingTime = 30
