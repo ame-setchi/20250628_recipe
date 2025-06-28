@@ -250,6 +250,9 @@ function parseHTMLRecipe(html: string, url: string) {
       .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '') // styleタグを除去
       .replace(/<link[^>]*>/gi, '') // linkタグを除去
       .replace(/<meta[^>]*>/gi, '') // metaタグを除去
+      .replace(/<img[^>]*>/gi, '') // imgタグを除去
+      .replace(/<br[^>]*>/gi, ' ') // brタグを空白に変換
+      .replace(/<hr[^>]*>/gi, ' ') // hrタグを空白に変換
       .replace(/<[^>]*>/g, '') // 残りのHTMLタグを除去
       .replace(/\s+/g, ' ') // 複数の空白を単一の空白に
       .replace(/&nbsp;/g, ' ') // HTMLエンティティを変換
@@ -257,6 +260,10 @@ function parseHTMLRecipe(html: string, url: string) {
       .replace(/&lt;/g, '<')
       .replace(/&gt;/g, '>')
       .replace(/&quot;/g, '"')
+      .replace(/&apos;/g, "'")
+      .replace(/&copy;/g, '©')
+      .replace(/&reg;/g, '®')
+      .replace(/&trade;/g, '™')
       .replace(/media="[^"]*"/gi, '') // media属性を除去
       .replace(/data-[^=]*="[^"]*"/gi, '') // data属性を除去
       .replace(/rel="[^"]*"/gi, '') // rel属性を除去
@@ -265,9 +272,47 @@ function parseHTMLRecipe(html: string, url: string) {
       .replace(/class="[^"]*"/gi, '') // class属性を除去
       .replace(/id="[^"]*"/gi, '') // id属性を除去
       .replace(/style="[^"]*"/gi, '') // style属性を除去
+      .replace(/type="[^"]*"/gi, '') // type属性を除去
+      .replace(/name="[^"]*"/gi, '') // name属性を除去
+      .replace(/value="[^"]*"/gi, '') // value属性を除去
+      .replace(/content="[^"]*"/gi, '') // content属性を除去
+      .replace(/property="[^"]*"/gi, '') // property属性を除去
+      .replace(/charset="[^"]*"/gi, '') // charset属性を除去
+      .replace(/http-equiv="[^"]*"/gi, '') // http-equiv属性を除去
       .replace(/\{[^}]*\}/g, '') // CSSブロックを除去
       .replace(/@[^{]*\{[^}]*\}/g, '') // CSSルールを除去
+      .replace(/\d+"\s*\/?>/g, '') // 数字+" /> パターンを除去
+      .replace(/\d+"\s*>/g, '') // 数字+" > パターンを除去
+      .replace(/"[^"]*"\s*\/?>/g, '') // "任意の文字列" /> パターンを除去
+      .replace(/"[^"]*"\s*>/g, '') // "任意の文字列" > パターンを除去
+      .replace(/\s+/g, ' ') // 再度複数の空白を単一の空白に
       .trim()
+  }
+  
+  // テキストの品質チェック関数
+  const isValidText = (text: string): boolean => {
+    if (!text || text.length < 2) return false
+    if (text.includes('{') || text.includes('}')) return false
+    if (text.includes('media=') || text.includes('data-')) return false
+    if (text.includes('rel=') || text.includes('href=')) return false
+    if (text.includes('src=') || text.includes('class=')) return false
+    if (text.includes('id=') || text.includes('style=')) return false
+    if (text.includes('type=') || text.includes('name=')) return false
+    if (text.includes('value=') || text.includes('content=')) return false
+    if (text.includes('property=') || text.includes('charset=')) return false
+    if (text.includes('http-equiv=')) return false
+    if (text.match(/^\d+"\s*\/?>$/)) return false
+    if (text.match(/^"[^"]*"\s*\/?>$/)) return false
+    if (text.match(/^\s*[0-9]+\s*$/)) return false
+    if (text.match(/^\s*[a-zA-Z0-9_\-]+\s*$/)) return false
+    // セクションタイトルや不要なテキストを除外
+    if (text.includes('材料') || text.includes('作り方') || text.includes('調理時間')) return false
+    if (text.includes('人分') || text.includes('分') || text.includes('時間')) return false
+    if (text.includes('カロリー') || text.includes('kcal')) return false
+    if (text.includes('塩分') || text.includes('糖質')) return false
+    if (text.includes('タンパク質') || text.includes('脂質')) return false
+    if (text.includes('食物繊維')) return false
+    return true
   }
   
   // 材料を抽出（実際のクックパッドHTML構造に基づく）
@@ -281,7 +326,7 @@ function parseHTMLRecipe(html: string, url: string) {
     if (liMatches) {
       liMatches.forEach(match => {
         const text = cleanText(match)
-        if (text && text.length > 1 && !text.includes('{') && !text.includes('}')) {
+        if (isValidText(text)) {
           ingredients.push(text)
         }
       })
@@ -297,7 +342,7 @@ function parseHTMLRecipe(html: string, url: string) {
       if (liMatches) {
         liMatches.forEach(match => {
           const text = cleanText(match)
-          if (text && text.length > 1 && !text.includes('{') && !text.includes('}')) {
+          if (isValidText(text)) {
             ingredients.push(text)
           }
         })
@@ -312,7 +357,7 @@ function parseHTMLRecipe(html: string, url: string) {
       console.log('Found materials with div class ingredient:', materialsDiv.length)
       materialsDiv.forEach(match => {
         const text = cleanText(match)
-        if (text && text.length > 1 && !text.includes('{') && !text.includes('}')) {
+        if (isValidText(text)) {
           ingredients.push(text)
         }
       })
@@ -328,7 +373,7 @@ function parseHTMLRecipe(html: string, url: string) {
       if (paragraphs) {
         paragraphs.forEach(match => {
           const text = cleanText(match)
-          if (text && text.length > 1 && !text.includes('{') && !text.includes('}')) {
+          if (isValidText(text)) {
             ingredients.push(text)
           }
         })
@@ -343,7 +388,7 @@ function parseHTMLRecipe(html: string, url: string) {
       console.log('Found numbered list:', numberedList.length)
       numberedList.forEach(match => {
         const text = match.replace(/^\d+\.\s*/, '').trim()
-        if (text && text.length > 1 && !text.includes('{') && !text.includes('}')) {
+        if (isValidText(text)) {
           ingredients.push(text)
         }
       })
@@ -357,8 +402,7 @@ function parseHTMLRecipe(html: string, url: string) {
       console.log('Found materials divs:', materialsDivs.length)
       materialsDivs.forEach(match => {
         const text = cleanText(match)
-        if (text && text.length > 1 && !text.includes('{') && !text.includes('}') && 
-            !text.includes('材料') && !text.includes('作り方') && !text.includes('調理時間')) {
+        if (isValidText(text)) {
           ingredients.push(text)
         }
       })
@@ -378,7 +422,7 @@ function parseHTMLRecipe(html: string, url: string) {
     if (liMatches) {
       liMatches.forEach(match => {
         const text = cleanText(match)
-        if (text && text.length > 1 && !text.includes('{') && !text.includes('}')) {
+        if (isValidText(text)) {
           instructions.push(text)
         }
       })
@@ -394,7 +438,7 @@ function parseHTMLRecipe(html: string, url: string) {
       if (liMatches) {
         liMatches.forEach(match => {
           const text = cleanText(match)
-          if (text && text.length > 1 && !text.includes('{') && !text.includes('}')) {
+          if (isValidText(text)) {
             instructions.push(text)
           }
         })
@@ -409,7 +453,7 @@ function parseHTMLRecipe(html: string, url: string) {
       console.log('Found steps with div class step:', stepsDiv.length)
       stepsDiv.forEach(match => {
         const text = cleanText(match)
-        if (text && text.length > 1 && !text.includes('{') && !text.includes('}')) {
+        if (isValidText(text)) {
           instructions.push(text)
         }
       })
@@ -423,7 +467,7 @@ function parseHTMLRecipe(html: string, url: string) {
       console.log('Found step numbers with content:', stepNumbers.length)
       stepNumbers.forEach(match => {
         const text = cleanText(match)
-        if (text && text.length > 1 && !text.includes('{') && !text.includes('}')) {
+        if (isValidText(text)) {
           instructions.push(text)
         }
       })
@@ -439,7 +483,7 @@ function parseHTMLRecipe(html: string, url: string) {
       if (paragraphs) {
         paragraphs.forEach(match => {
           const text = cleanText(match)
-          if (text && text.length > 5 && !text.includes('{') && !text.includes('}')) {
+          if (isValidText(text)) {
             instructions.push(text)
           }
         })
@@ -454,7 +498,7 @@ function parseHTMLRecipe(html: string, url: string) {
       console.log('Found numbered steps:', numberedSteps.length)
       numberedSteps.forEach(match => {
         const text = match.replace(/^\d+\.\s*/, '').trim()
-        if (text && text.length > 5 && !text.includes('{') && !text.includes('}')) {
+        if (isValidText(text)) {
           instructions.push(text)
         }
       })
@@ -468,8 +512,7 @@ function parseHTMLRecipe(html: string, url: string) {
       console.log('Found steps divs:', stepsDivs.length)
       stepsDivs.forEach(match => {
         const text = cleanText(match)
-        if (text && text.length > 10 && !text.includes('{') && !text.includes('}') && 
-            !text.includes('材料') && !text.includes('作り方') && !text.includes('調理時間')) {
+        if (isValidText(text)) {
           instructions.push(text)
         }
       })
